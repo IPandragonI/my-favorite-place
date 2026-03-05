@@ -1,0 +1,51 @@
+name: favorite_places
+
+services:
+  postgres:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecret
+      POSTGRES_DB: favorite_places
+    ports:
+      - "5432:5432"
+    volumes:
+      - favorite_places_data:/var/lib/postgresql/data
+    networks:
+      - favorite_places_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - favorite_places_network
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: supersecret
+      DB_NAME: favorite_places
+
+  client:
+    build: ./client
+    ports:
+      - "8080:80"
+    networks:
+      - favorite_places_network
+    depends_on:
+      - server
+
+networks:
+  favorite_places_network:
+
+volumes:
+  favorite_places_data:
