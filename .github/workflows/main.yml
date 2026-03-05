@@ -1,6 +1,4 @@
-name: Docker Images CI
-
-run-name: Tests + Docker build - ${{ github.ref_name }}
+name: CI/CD Pipeline
 
 on:
   push:
