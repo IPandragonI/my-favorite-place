@@ -1,4 +1,4 @@
-name: favorite_places
+name: favorite_places_prod
 
 services:
   postgres:
