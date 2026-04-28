@@ -138,26 +138,108 @@ Je vois que les 3 anciens sont intacts et que le nouveau a bien été ajouté.
 Pour adapter pour des VMs/VPS en SSH, il faudrait ajouter les IP pour le manager et les workers. Aussi, il faudrait ajouter des clés pour le ssh dans l'inventaire.
 
 Dans le playbook, on devrait modifier les commandes pour ajouter l'adresse. Par exemple, 
-
+```text
 command: "docker swarm init"
-
+```
 devient : 
 
+```text
 command: "docker swarm init --advertise-addr {{ ansible_host }}"
-
+```
 
 Ou par exemple :
 
+```text
 command: "{{ hostvars[groups['managers'][0]]['worker_join_command'] }} manager:2377"
-
+```
 
 devient :
-
+```text
 command: "{{ hostvars[groups['managers'][0]]['worker_join_command'] }} {{ hostvars[groups['managers'][0]]['ansible_host'] }}:2377"
-
+```
 
 4
 
 De ce que j'ai compris, Terraform sert à "provisionner" l'infra. Il va créer les ressources cloud (VMs, réseaux, load balancers, DNS...) chez des fournisseurs comme AWS, GCP ou Azure. Il parle à des APIs cloud pour faire apparaître des machines de zéro.
 
 Ansible, lui,  sert à configurer ce qui tourne sur cette infrastructure : une fois les machines créées par Terraform, Ansible s'y connecte en SSH pour installer Docker, configurer des services, déployer des applications, etc.
+
+
+### Exercice 6 - Traefik et Portainer
+
+1. On crée le réseau en mode overlay
+
+/ # docker network create -d overlay web 
+82y2q45c3k1pd1vm3kz3jtpki
+
+2. On déploie la stack
+
+docker compose up
+[+] up 13/13
+ ✔ Image traefik/whoami        Pulled                                                                                   2.7s
+ ✔ Image traefik:v3.6          Pulled                                                                                  12.5s
+ ✔ Container traefik-whoami-1  Created                                                                                  0.2s
+ ✔ Container traefik-traefik-1 Created                                                                                  0.2s
+Attaching to traefik-1, whoami-1
+Error response from daemon: failed to set up container networking: Could not attach to network web: rpc error: code = PermissionDenied desc = network web not manually attachable
+/ # docker stack deploy -c docker-compose.yml traefik
+(root) Additional property name is not allowed
+/ # docker stack deploy -c docker-compose.yml traefik
+Since --detach=false was not specified, tasks will be created in the background.
+In a future release, --detach=false will become the default.
+Creating service traefik_traefik
+Creating service traefik_whoami
+
+
+
+Je me rend compte qu'il faut aussi exposer les ports dans le compose de base :
+    ports:
+      - "8000:80"
+      - "8080:8080"
+
+
+Si je relance la stack et que je vais sur 
+http://traefik.swarm.localhost:8000
+
+J'ai :
+![Image15](img/Image15.png)
+
+Si je vais sur 
+http://whoami.swarm.localhost:8000/
+
+
+J'ai :
+![Image16](img/Image16.png)
+
+
+3. Concernant l'application de vote, malgré avoir modifié le compose de mon manager, j'ai un problème. Les images n'arrivent pas à se pull.
+Si je vais sur les bonnes urls, j'ai 404.
+
+
+Le problème vient de "No sush image". Après avoir pas mal recherché de mon côté, j'ai demandé une solution à Claude qui m'a donné un script sh qui j'ai exécuté avec git bash.
+
+Le but de ce script est de pré pull les images sur mes nodes. Important, il faut que je me docker login sur chacun de mes noeuds, sinon j'atteins la limite de pull.
+
+```bash
+for node in ansible-manager-1 ansible-node-1 ansible-node-2 ansible-node-3; do
+  for image in redis:alpine postgres:15-alpine dockersamples/examplevotingapp_vote dockersamples/examplevotingapp_result dockersamples/examplevotingapp_worker; do
+    echo "Pulling $image on $node..."
+    docker exec $node docker pull $image
+  done
+done
+```
+
+Une fois que tout est pull, je retourne sur mon manager et je fais un stack deploy.
+
+Si je vais sur 
+http://vote.swarm.localhost:8000/
+
+J'ai :
+![Image17](img/Image17.png)
+
+Si je vais sur 
+http://result.swarm.localhost:8000/
+
+
+J'ai :
+![Image18](img/Image18.png)
