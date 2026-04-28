@@ -216,7 +216,7 @@ J'ai :
 Si je vais sur les bonnes urls, j'ai 404.
 
 
-Le problème vient de "No sush image". Après avoir pas mal recherché de mon côté, j'ai demandé une solution à Claude qui m'a donné un script sh qui j'ai exécuté avec git bash.
+Le problème vient de "No sush image". J'ai donc créé un script afin de simplifier le pull des images
 
 Le but de ce script est de pré pull les images sur mes nodes. Important, il faut que je me docker login sur chacun de mes noeuds, sinon j'atteins la limite de pull.
 
